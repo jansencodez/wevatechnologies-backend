@@ -1,41 +1,73 @@
-from typing import List
-from app.schemas.blog import BlogSchema
-from app.db.connection import db
 from pymongo import DESCENDING
-from fastapi import HTTPException
+from app.schemas.blog import BlogSchema
+from typing import List, Dict
+from app.db.connection import db  # Assuming you have a MongoDB model for Blog
+import slugify
+from app.utils.delete_images import delete_images_from_cloudinary
 
-# Function to create a new blog with error handling
-async def create_blog(blog_data: BlogSchema, image_urls: List[str]):
-    try:
-        blog_dict = blog_data.model_dump()  # Convert Pydantic model to dict
-        blog_dict["images"] = image_urls
-        blog_dict["link"] = f"/blogs/{blog_data.slug}"
+# Create a new blog post
+async def create_blog(blog_data: BlogSchema, images: List[str]):
+    blog_dict = blog_data.model_dump()
+    blog_dict["images"] = images
+    blog_dict["slug"] = slugify.slugify(blog_data.title)
 
-        # Insert the blog into the MongoDB collection
-        result = await db.blogs_database.blogs.insert_one(blog_dict)
-        blog_dict["id"] = str(result.inserted_id)
-        return blog_dict
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating blog: {str(e)}")
+    result = await db.blogs_database.blogs.insert_one(blog_dict)
+    blog_dict["id"] = str(result.inserted_id)
 
-# Function to get all blogs with error handling
-async def get_all_blogs(limit: int = 10, skip: int = 0):
-    try:
-        blogs_cursor = db.blogs_database.blogs.find().skip(skip).limit(limit).sort("created_at", DESCENDING)
+    return blog_dict
 
-        # Convert cursor to list of dicts and add 'id' field for each blog
-        blogs = []
-        async for blog in blogs_cursor:
-            blog["created_at"] = blog["_id"].generation_time
-            blog["updated_at"] = blog.get("updated_at", None)
+# Get all blog posts with pagination
+async def get_all_blogs(limit: int, skip: int):
+    blogs_cursor = db.blogs_database.blogs.find().skip(skip).limit(limit).sort("created_at", DESCENDING)
+    blogs = []
+    async for blog in blogs_cursor:
+        blog["created_at"] = blog["_id"].generation_time
+        blog["updated_at"] = blog.get("updated_at", None)
+        blog["id"] = str(blog["_id"])
+        del blog["_id"]
+        blogs.append(blog)
+    return blogs
 
-            blog["id"] = str(blog["_id"])  
-            del blog["_id"]
-            
-            blogs.append(blog)
-           
-            
+# Update an existing blog post by its ID
+async def update_blog(blog_id: str, updated_data: BlogSchema, images: List[str]):
+    # Find the blog post by ID
+    blog = await db.blogs_database.blogs.find_one({"_id": db.ObjectId(blog_id)})
+    if not blog:
+        raise ValueError("Blog post not found")
 
-        return blogs
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching blogs: {str(e)}")
+    # Update the fields provided in updated_data
+    updated_data_dict = updated_data.model_dump()
+    updated_data_dict["images"] = images
+    updated_data_dict["updated_at"] = db.datetime.datetime.utcnow()  # Update timestamp
+
+    # Update the blog in the database
+    result = await db.blogs_database.blogs.update_one(
+        {"_id": db.ObjectId(blog_id)},
+        {"$set": updated_data_dict}
+    )
+
+    if result.modified_count == 0:
+        raise ValueError("Failed to update the blog post")
+
+    # Fetch the updated blog post and return it
+    updated_blog = await db.blogs_database.blogs.find_one({"_id": db.ObjectId(blog_id)})
+    updated_blog["id"] = str(updated_blog["_id"])
+    del updated_blog["_id"]
+    return updated_blog
+
+# Delete a blog post by its ID
+async def delete_blog(blog_id: str):
+    # Find the blog post by ID
+    blog = await db.blogs_database.blogs.find_one({"_id": db.ObjectId(blog_id)})
+    if not blog:
+        raise ValueError("Blog post not found")
+    
+    await delete_images_from_cloudinary(blog["images"])
+
+    # Delete the blog post
+    result = await db.blogs_database.blogs.delete_one({"_id": db.ObjectId(blog_id)})
+
+    if result.deleted_count == 0:
+        raise ValueError("Failed to delete the blog post")
+
+    return {"id": blog_id, "message": "Blog post deleted successfully"}

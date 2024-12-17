@@ -1,10 +1,10 @@
-# app/crud/announcement.py
 from pymongo import DESCENDING
 from app.schemas.announcement import AnnouncementSchema
-from typing import List
-from app.db.connection import db  # Assuming you have a MongoDB model for Announcement
-import slugify
+from app.utils.delete_images import delete_images_from_cloudinary
+from typing import List, Dict
+from app.db.connection import db  
 
+# Create a new announcement
 async def create_announcement(announcement_data: AnnouncementSchema, images: List[str]):
     announcement_dict = announcement_data.model_dump()
     announcement_dict["images"] = images
@@ -15,8 +15,7 @@ async def create_announcement(announcement_data: AnnouncementSchema, images: Lis
 
     return announcement_dict
 
-from pymongo import DESCENDING
-
+# Get all announcements with pagination
 async def get_all_announcements(limit: int, skip: int):
     # Fetch announcements from the database, sorted by created_at in descending order
     announcements_cursor = db.announcements_database.announcements.find().skip(skip).limit(limit).sort("created_at", DESCENDING)
@@ -31,7 +30,44 @@ async def get_all_announcements(limit: int, skip: int):
         del announcement["_id"]  
         announcements.append(announcement)
         
-            
-    
     return announcements
 
+# Update an existing announcement by its ID
+async def update_announcement(announcement_id: str, updated_data: Dict):
+    # Find the announcement by ID
+    announcement = await db.announcements_database.announcements.find_one({"_id": db.ObjectId(announcement_id)})
+    if not announcement:
+        raise ValueError("Announcement not found")
+
+    # Update the fields provided in updated_data
+    updated_data["updated_at"] = db.datetime.datetime.utcnow()  # Update timestamp
+    result = await db.announcements_database.announcements.update_one(
+        {"_id": db.ObjectId(announcement_id)},
+        {"$set": updated_data}
+    )
+
+    if result.modified_count == 0:
+        raise ValueError("Failed to update the announcement")
+
+    # Fetch the updated announcement and return it
+    updated_announcement = await db.announcements_database.announcements.find_one({"_id": db.ObjectId(announcement_id)})
+    updated_announcement["id"] = str(updated_announcement["_id"])
+    del updated_announcement["_id"]
+    return updated_announcement
+
+# Delete an announcement by its ID
+async def delete_announcement(announcement_id: str):
+    # Find the announcement by ID
+    announcement = await db.announcements_database.announcements.find_one({"_id": db.ObjectId(announcement_id)})
+    if not announcement:
+        raise ValueError("Announcement not found")
+    
+    await delete_images_from_cloudinary(announcement["images"])
+
+    # Delete the announcement
+    result = await db.announcements_database.announcements.delete_one({"_id": db.ObjectId(announcement_id)})
+
+    if result.deleted_count == 0:
+        raise ValueError("Failed to delete the announcement")
+
+    return {"id": announcement_id, "message": "Announcement deleted successfully"}
