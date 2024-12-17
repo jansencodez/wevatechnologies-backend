@@ -1,0 +1,56 @@
+# Python bytecode files
+*.pyc
+*.pyo
+__pycache__/
+
+# Virtual environment directories
+venv/
+env/
+.venv/
+.env/
+
+# Dependency directories (if you're using pipenv or poetry)
+Pipfile.lock
+poetry.lock
+
+# If you're using Docker, ignore Docker files
+.docker/
+
+# IDE/editor configuration files
+.vscode/
+.idea/
+
+# Logs and temporary files
+*.log
+*.pot
+*.py[cod]
+*.swp
+*.swo
+
+# .env file for environment variables (never commit secrets)
+.env
+
+# FastAPI Specific / Static files
+/static/
+
+
+# Python bytecode
+*.pyc
+
+# Virtual environment
+.venv/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+
+# Cache and build directories
+__pycache__/
+
+# Token file
+token.pickle
+
+# Sensitive credentials
+app/credentials.json

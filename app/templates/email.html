@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Email Response</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f9f9f9;
+        margin: 0;
+        padding: 20px;
+      }
+      .email-container {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 600px;
+        margin: 0 auto;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      .email-header {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .email-header h1 {
+        font-size: 24px;
+        color: #2c3e50;
+      }
+      .email-body {
+        font-size: 16px;
+        color: #34495e;
+        line-height: 1.6;
+      }
+      .response-message {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #ecf0f1;
+        border-radius: 5px;
+        font-style: italic;
+      }
+      .footer {
+        margin-top: 30px;
+        text-align: center;
+        font-size: 14px;
+        color: #7f8c8d;
+      }
+      .footer a {
+        color: #3498db;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="email-header">
+        <h1>Response to Your Message</h1>
+      </div>
+      <div class="email-body">
+        <p>Hello {{ sender_email }},</p>
+        <p>
+          Thank you for reaching out to us. We have received your message and
+          would like to provide the following response:
+        </p>
+
+        <div class="response-message">
+          <p>{{ response_message }}</p>
+        </div>
+
+        <p>
+          If you have any further questions, feel free to reply to this email.
+        </p>
+      </div>
+      <div class="footer">
+        <p>Best regards,</p>
+        <p>Weva Technologies</p>
+      </div>
+    </div>
+  </body>
+</html>
