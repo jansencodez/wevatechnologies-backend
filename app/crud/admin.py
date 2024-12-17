@@ -66,7 +66,10 @@ async def create_admin(admin: AdminCreate):
     admin_dict = admin.model_dump()
     admin_dict["password"] = hashed_password
     result = await db.admins_database.admins.insert_one(admin_dict)
-    return {**admin_dict, "id": str(result.inserted_id)}
+
+    admin_dict["id"] = str(result.inserted_id)
+
+    return admin_dict
 
 # Get an admin by email
 from app.schemas.admin import AdminResponse
@@ -78,7 +81,8 @@ async def get_admin_by_email(email: str):
     
     if admin:
         
-        admin["id"] = str(admin["_id"])  
+        admin["id"] = str(admin["_id"]) 
+
         return AdminResponse(**admin)  
         
     return None

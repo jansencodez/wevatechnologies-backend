@@ -50,6 +50,10 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
 # Include all the routers
 app.include_router(blog_router, prefix="/api/blogs", tags=["blogs"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
