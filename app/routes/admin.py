@@ -29,6 +29,8 @@ async def create_admin_route(admin: AdminCreate):
     
     # Create the new admin
     new_admin = await create_admin(admin)
+    
+
     return {"message": "Admin created successfully", "admin": new_admin}
 
 
