@@ -1,3 +1,5 @@
+from bson import ObjectId
+from fastapi import HTTPException
 from pymongo import DESCENDING
 from app.schemas.announcement import AnnouncementSchema
 from app.utils.delete_images import delete_images_from_cloudinary
@@ -57,17 +59,31 @@ async def update_announcement(announcement_id: str, updated_data: Dict):
 
 # Delete an announcement by its ID
 async def delete_announcement(announcement_id: str):
-    # Find the announcement by ID
-    announcement = await db.announcements_database.announcements.find_one({"_id": db.ObjectId(announcement_id)})
-    if not announcement:
-        raise ValueError("Announcement not found")
-    
-    await delete_images_from_cloudinary(announcement["images"])
+    try:
+        # Validate the announcement ID
+        if not ObjectId.is_valid(announcement_id):
+            raise HTTPException(status_code=400, detail="Invalid announcement ID format")
 
-    # Delete the announcement
-    result = await db.announcements_database.announcements.delete_one({"_id": db.ObjectId(announcement_id)})
+        # Find the announcement by ID
+        announcement = await db.announcements_database.announcements.find_one({"_id": ObjectId(announcement_id)})
+        if not announcement:
+            raise HTTPException(status_code=404, detail="Announcement not found")
 
-    if result.deleted_count == 0:
-        raise ValueError("Failed to delete the announcement")
+        # Delete images from Cloudinary
+        try:
+            await delete_images_from_cloudinary(announcement["images"])
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error deleting images: {str(e)}")
 
-    return {"id": announcement_id, "message": "Announcement deleted successfully"}
+        # Delete the announcement
+        result = await db.announcements_database.announcements.delete_one({"_id": ObjectId(announcement_id)})
+
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=400, detail="Failed to delete the announcement")
+
+        return {"id": announcement_id, "message": "Announcement deleted successfully"}
+
+    except HTTPException as e:
+        raise e  # Re-raise known HTTP errors
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting announcement: {str(e)}")

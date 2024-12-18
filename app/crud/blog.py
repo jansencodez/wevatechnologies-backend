@@ -1,3 +1,5 @@
+from bson import ObjectId
+from fastapi import HTTPException
 from pymongo import DESCENDING
 from app.schemas.blog import BlogSchema
 from typing import List, Dict
@@ -57,17 +59,31 @@ async def update_blog(blog_id: str, updated_data: BlogSchema, images: List[str])
 
 # Delete a blog post by its ID
 async def delete_blog(blog_id: str):
-    # Find the blog post by ID
-    blog = await db.blogs_database.blogs.find_one({"_id": db.ObjectId(blog_id)})
-    if not blog:
-        raise ValueError("Blog post not found")
-    
-    await delete_images_from_cloudinary(blog["images"])
+    try:
+        # Validate the blog ID
+        if not ObjectId.is_valid(blog_id):
+            raise HTTPException(status_code=400, detail="Invalid blog ID format")
 
-    # Delete the blog post
-    result = await db.blogs_database.blogs.delete_one({"_id": db.ObjectId(blog_id)})
+        # Find the blog post by ID
+        blog = await db.blogs_database.blogs.find_one({"_id": ObjectId(blog_id)})
+        if not blog:
+            raise HTTPException(status_code=404, detail="Blog post not found")
 
-    if result.deleted_count == 0:
-        raise ValueError("Failed to delete the blog post")
+        # Delete images from Cloudinary
+        try:
+            await delete_images_from_cloudinary(blog["images"])
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error deleting images: {str(e)}")
 
-    return {"id": blog_id, "message": "Blog post deleted successfully"}
+        # Delete the blog post
+        result = await db.blogs_database.blogs.delete_one({"_id": ObjectId(blog_id)})
+
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=400, detail="Failed to delete the blog post")
+
+        return {"id": blog_id, "message": "Blog post deleted successfully"}
+
+    except HTTPException as e:
+        raise e  # Re-raise known HTTP errors
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting blog post: {str(e)}")

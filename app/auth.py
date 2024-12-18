@@ -1,9 +1,10 @@
-import jwt
+import jwt as pyjwt
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from typing import Optional
 import os
 from dotenv import load_dotenv
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -28,7 +29,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = pyjwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 def create_refresh_token(data: dict):
@@ -39,7 +40,7 @@ def create_refresh_token(data: dict):
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = pyjwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 def verify_password(plain_password, hashed_password):
@@ -60,13 +61,13 @@ def verify_token(token: str):
     If the token is expired or invalid, return None.
     """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = pyjwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         # Convert the exp timestamp to an offset-aware datetime
         exp_datetime = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
         if datetime.now(timezone.utc) > exp_datetime:
             return None
         return payload
-    except jwt.PyJWTError:
+    except pyjwt.PyJWTError:
         return None
 
 def verify_refresh_token(token: str):
@@ -75,11 +76,11 @@ def verify_refresh_token(token: str):
     If the refresh token is expired or invalid, return None.
     """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = pyjwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         # Convert the exp timestamp to an offset-aware datetime
         exp_datetime = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
         if datetime.now(timezone.utc) > exp_datetime:
             return None
         return payload
-    except jwt.PyJWTError:
+    except pyjwt.PyJWTError:
         return None

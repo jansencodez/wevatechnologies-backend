@@ -1,3 +1,4 @@
+from bson import ObjectId
 from fastapi import HTTPException
 from pymongo import DESCENDING
 from app.schemas.event import EventSchema
@@ -46,7 +47,7 @@ async def get_all_events(limit: int, skip: int):
 async def get_event_by_id(event_id: str):
     try:
         # Fetch a single event by its ID
-        event = await db.events_database.events.find_one({"_id": db.ObjectId(event_id)})
+        event = await db.events_database.events.find_one({"_id": ObjectId(event_id)})
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
 
@@ -68,11 +69,11 @@ async def update_event(event_id: str, updated_data: EventSchema, images: List[st
         # Prepare the updated data
         updated_data_dict = updated_data.model_dump()
         updated_data_dict["images"] = images
-        updated_data_dict["updated_at"] = datetime.datetime.utcnow()  # Set the updated timestamp
+        updated_data_dict["updated_at"] = datetime.datetime.now(datetime.timezone.utc)  # Set the updated timestamp
 
         # Update the event in the database
         result = await db.events_database.events.update_one(
-            {"_id": db.ObjectId(event_id)},
+            {"_id": ObjectId(event_id)},
             {"$set": updated_data_dict}
         )
 
@@ -80,7 +81,7 @@ async def update_event(event_id: str, updated_data: EventSchema, images: List[st
             raise HTTPException(status_code=400, detail="No changes made to the event")
 
         # Fetch the updated event and return it
-        updated_event = await db.events_database.events.find_one({"_id": db.ObjectId(event_id)})
+        updated_event = await db.events_database.events.find_one({"_id": ObjectId(event_id)})
         updated_event["id"] = str(updated_event["_id"])
         del updated_event["_id"]
         return updated_event
@@ -90,19 +91,30 @@ async def update_event(event_id: str, updated_data: EventSchema, images: List[st
 
 async def delete_event(event_id: str):
     try:
+        # Validate the event ID
+        if not ObjectId.is_valid(event_id):
+            raise HTTPException(status_code=400, detail="Invalid event ID format")
+
         # Find the event to delete
-        event = await db.events_database.events.find_one({"_id": db.ObjectId(event_id)})
+        event = await db.events_database.events.find_one({"_id": ObjectId(event_id)})
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
-        
-        await delete_images_from_cloudinary(event["images"])
+
+        # Delete images from Cloudinary
+        try:
+            await delete_images_from_cloudinary(event["images"])
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error deleting images: {str(e)}")
 
         # Delete the event from the database
-        result = await db.events_database.events.delete_one({"_id": db.ObjectId(event_id)})
+        result = await db.events_database.events.delete_one({"_id": ObjectId(event_id)})
 
         if result.deleted_count == 0:
             raise HTTPException(status_code=400, detail="Failed to delete the event")
 
         return {"id": event_id, "message": "Event deleted successfully"}
+
+    except HTTPException as e:
+        raise e  # Re-raise known errors
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting event: {str(e)}")

@@ -105,6 +105,7 @@ async def update_event_route(
 
 @router.delete("/{event_id}", response_model=dict)
 async def delete_event_route(event_id: str):
+    
     try:
         response = await delete_event(event_id)
         return response

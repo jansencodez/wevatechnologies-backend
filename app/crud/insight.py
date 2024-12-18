@@ -1,3 +1,4 @@
+from bson import ObjectId
 from pymongo import DESCENDING
 from app.schemas.insight import InsightsSchema
 from typing import List
@@ -45,7 +46,7 @@ async def get_all_insights(limit: int, skip: int):
 async def get_insight_by_id(insight_id: str):
     try:
         # Fetch a single insight by its ID
-        insight = await db.insights_database.insights.find_one({"_id": db.ObjectId(insight_id)})
+        insight = await db.insights_database.insights.find_one({"_id": ObjectId(insight_id)})
         if not insight:
             raise HTTPException(status_code=404, detail="Insight not found")
 
@@ -60,18 +61,18 @@ async def get_insight_by_id(insight_id: str):
 async def update_insight(insight_id: str, updated_data: InsightsSchema, images: List[str]):
     try:
         # Find the insight to update
-        insight = await db.insights_database.insights.find_one({"_id": db.ObjectId(insight_id)})
+        insight = await db.insights_database.insights.find_one({"_id": ObjectId(insight_id)})
         if not insight:
             raise HTTPException(status_code=404, detail="Insight not found")
 
         # Prepare the updated data
         updated_data_dict = updated_data.model_dump()
         updated_data_dict["images"] = images
-        updated_data_dict["updated_at"] = datetime.datetime.utcnow()  # Set the updated timestamp
+        updated_data_dict["updated_at"] = datetime.datetime.now(datetime.timezone.utc)  # Set the updated timestamp
 
         # Update the insight in the database
         result = await db.insights_database.insights.update_one(
-            {"_id": db.ObjectId(insight_id)},
+            {"_id": ObjectId(insight_id)},
             {"$set": updated_data_dict}
         )
 
@@ -79,7 +80,7 @@ async def update_insight(insight_id: str, updated_data: InsightsSchema, images: 
             raise HTTPException(status_code=400, detail="No changes made to the insight")
 
         # Fetch the updated insight and return it
-        updated_insight = await db.insights_database.insights.find_one({"_id": db.ObjectId(insight_id)})
+        updated_insight = await db.insights_database.insights.find_one({"_id": ObjectId(insight_id)})
         updated_insight["id"] = str(updated_insight["_id"])
         del updated_insight["_id"]
         return updated_insight
@@ -89,19 +90,30 @@ async def update_insight(insight_id: str, updated_data: InsightsSchema, images: 
 
 async def delete_insight(insight_id: str):
     try:
+        # Validate the insight ID
+        if not ObjectId.is_valid(insight_id):
+            raise HTTPException(status_code=400, detail="Invalid insight ID format")
+
         # Find the insight to delete
-        insight = await db.insights_database.insights.find_one({"_id": db.ObjectId(insight_id)})
+        insight = await db.insights_database.insights.find_one({"_id": ObjectId(insight_id)})
         if not insight:
             raise HTTPException(status_code=404, detail="Insight not found")
-        
-        await delete_images_from_cloudinary(insight["images"])
+
+        # Delete images from Cloudinary
+        try:
+            await delete_images_from_cloudinary(insight["images"])
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error deleting images: {str(e)}")
 
         # Delete the insight from the database
-        result = await db.insights_database.insights.delete_one({"_id": db.ObjectId(insight_id)})
+        result = await db.insights_database.insights.delete_one({"_id": ObjectId(insight_id)})
 
         if result.deleted_count == 0:
             raise HTTPException(status_code=400, detail="Failed to delete the insight")
 
         return {"id": insight_id, "message": "Insight deleted successfully"}
+
+    except HTTPException as e:
+        raise e  # Re-raise known HTTP errors
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting insight: {str(e)}")
