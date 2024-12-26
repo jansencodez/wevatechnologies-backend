@@ -1,3 +1,4 @@
+import datetime
 from bson import ObjectId
 from fastapi import HTTPException
 from pymongo import DESCENDING
@@ -37,14 +38,14 @@ async def get_all_announcements(limit: int, skip: int):
 # Update an existing announcement by its ID
 async def update_announcement(announcement_id: str, updated_data: Dict):
     # Find the announcement by ID
-    announcement = await db.announcements_database.announcements.find_one({"_id": db.ObjectId(announcement_id)})
+    announcement = await db.announcements_database.announcements.find_one({"_id": ObjectId(announcement_id)})
     if not announcement:
         raise ValueError("Announcement not found")
 
     # Update the fields provided in updated_data
-    updated_data["updated_at"] = db.datetime.datetime.utcnow()  # Update timestamp
+    updated_data["updated_at"] = datetime.datetime.now(datetime.timezone.utc)  # Update timestamp
     result = await db.announcements_database.announcements.update_one(
-        {"_id": db.ObjectId(announcement_id)},
+        {"_id": ObjectId(announcement_id)},
         {"$set": updated_data}
     )
 
@@ -52,7 +53,7 @@ async def update_announcement(announcement_id: str, updated_data: Dict):
         raise ValueError("Failed to update the announcement")
 
     # Fetch the updated announcement and return it
-    updated_announcement = await db.announcements_database.announcements.find_one({"_id": db.ObjectId(announcement_id)})
+    updated_announcement = await db.announcements_database.announcements.find_one({"_id": ObjectId(announcement_id)})
     updated_announcement["id"] = str(updated_announcement["_id"])
     del updated_announcement["_id"]
     return updated_announcement

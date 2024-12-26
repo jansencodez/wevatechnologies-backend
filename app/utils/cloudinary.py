@@ -1,30 +1,35 @@
+import os
+
+from fastapi import HTTPException
 import cloudinary
 import cloudinary.uploader
-import os
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Retrieve environment variables
-CLOUD_NAME = os.getenv("CLOUD_NAME")
-CLOUD_API_KEY = os.getenv("CLOUD_API_KEY")
-CLOUD_API_SECRET = os.getenv("CLOUD_API_SECRET")
+# Retrieve the Cloudinary URL from environment variables
+CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
 
-# Debugging: Print environment variables to ensure they are loaded
-print("CLOUD_NAME:", CLOUD_NAME)
-print("CLOUD_API_KEY:", CLOUD_API_KEY)
-print("CLOUD_API_SECRET:", CLOUD_API_SECRET)
+# Ensure that the Cloudinary URL is loaded correctly
+if not CLOUDINARY_URL:
+    raise ValueError("Cloudinary configuration is missing. Please check your .env file.")
 
-# Configure Cloudinary with the loaded credentials
-cloudinary.config(
-    cloud_name=CLOUD_NAME,
-    api_key=CLOUD_API_KEY,
-    api_secret=CLOUD_API_SECRET
-)
+# Configure Cloudinary using the CLOUDINARY_URL
+cloudinary.config(cloudinary_url=CLOUDINARY_URL)
 
 # Function to upload a file to Cloudinary
 def upload(file):
-    # Upload the file and return the result
-    result = cloudinary.uploader.upload(file)
-    return result
+    try:
+        result = cloudinary.uploader.upload(file)
+        return result
+    except cloudinary.exceptions.Error as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+def delete(public_id):
+    try:
+        result = cloudinary.uploader.destroy(public_id)
+        return result
+    except cloudinary.exceptions.Error as e:
+        raise HTTPException(status_code=500, detail=str(e))

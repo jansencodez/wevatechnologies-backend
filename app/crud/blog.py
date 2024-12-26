@@ -1,8 +1,9 @@
+import datetime
 from bson import ObjectId
 from fastapi import HTTPException
 from pymongo import DESCENDING
 from app.schemas.blog import BlogSchema
-from typing import List, Dict
+from typing import List
 from app.db.connection import db  # Assuming you have a MongoDB model for Blog
 import slugify
 from app.utils.delete_images import delete_images_from_cloudinary
@@ -33,18 +34,18 @@ async def get_all_blogs(limit: int, skip: int):
 # Update an existing blog post by its ID
 async def update_blog(blog_id: str, updated_data: BlogSchema, images: List[str]):
     # Find the blog post by ID
-    blog = await db.blogs_database.blogs.find_one({"_id": db.ObjectId(blog_id)})
+    blog = await db.blogs_database.blogs.find_one({"_id": ObjectId(blog_id)})
     if not blog:
         raise ValueError("Blog post not found")
 
     # Update the fields provided in updated_data
     updated_data_dict = updated_data.model_dump()
     updated_data_dict["images"] = images
-    updated_data_dict["updated_at"] = db.datetime.datetime.utcnow()  # Update timestamp
+    updated_data_dict["updated_at"] = datetime.datetime.now(datetime.timezone.utc)  # Update timestamp
 
     # Update the blog in the database
     result = await db.blogs_database.blogs.update_one(
-        {"_id": db.ObjectId(blog_id)},
+        {"_id": ObjectId(blog_id)},
         {"$set": updated_data_dict}
     )
 
@@ -52,7 +53,7 @@ async def update_blog(blog_id: str, updated_data: BlogSchema, images: List[str])
         raise ValueError("Failed to update the blog post")
 
     # Fetch the updated blog post and return it
-    updated_blog = await db.blogs_database.blogs.find_one({"_id": db.ObjectId(blog_id)})
+    updated_blog = await db.blogs_database.blogs.find_one({"_id": ObjectId(blog_id)})
     updated_blog["id"] = str(updated_blog["_id"])
     del updated_blog["_id"]
     return updated_blog

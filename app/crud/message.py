@@ -1,6 +1,8 @@
+from fastapi import HTTPException
 from pymongo import DESCENDING
 from app.db.connection import db
-from app.schemas.message import MessageCreate
+from app.schemas.message import MessageCreate, MessageResponse
+from app.routes.notifications import manager
 from bson import ObjectId
 
 # Function to create a new message
@@ -9,9 +11,12 @@ async def create_message(message: MessageCreate):
     result = await db.messages_database.messages.insert_one(message_dict)
     message_dict["created_at"] = str(result.inserted_id.generation_time)
     message_dict["id"] = str(result.inserted_id)
+    del message_dict["_id"]
     
-    
-    return message_dict
+    if result.acknowledged:
+        await manager.broadcast(message_dict)
+        return  MessageResponse(**message_dict)
+    raise HTTPException(status_code=500, detail="Failed to send message")
 
 # Function to get all messages
 async def get_messages(limit: int, skip: int):

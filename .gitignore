@@ -54,3 +54,4 @@ token.pickle
 
 # Sensitive credentials
 app/credentials.json
+app/service-account-file.json

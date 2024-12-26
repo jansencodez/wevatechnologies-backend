@@ -1,3 +1,4 @@
+import datetime
 from fastapi import FastAPI
 from pydantic import BaseModel
 from app.routes.blog import router as blog_router
@@ -9,8 +10,10 @@ from app.routes.event import router as event_router
 from app.routes.announcement import router as announcement_router
 from app.routes.insight import router as insight_router
 from app.routes.system import router as system_router
+from app.routes.notifications import router as notification_router
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from app.routes.usage import track_api_usage, get_api_usage, reset_all_api_usage, api_usage
@@ -64,3 +67,4 @@ app.include_router(event_router, prefix="/api/events", tags=["events"])
 app.include_router(announcement_router, prefix="/api/announcements", tags=["announcements"])
 app.include_router(insight_router, prefix="/api/insights", tags=["insights"])
 app.include_router(system_router, prefix="/api/system", tags=["system"])
+app.include_router(notification_router, prefix="/ws", tags=["notifications"])
