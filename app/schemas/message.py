@@ -7,6 +7,7 @@ class MessageCreate(BaseModel):
     email: EmailStr
     message: str
     category: str
+    read: bool = False
 
 
 class MessageResponse(MessageCreate):

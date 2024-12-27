@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List
 from app.schemas.message import MessageCreate, MessageResponse
 from app.crud.message import create_message, get_messages, delete_message
+from app.db.connection import db
 
 router = APIRouter()
 
@@ -22,3 +23,9 @@ async def delete_message_route(message_id: str):
     if result.get("message") == "Message deleted successfully":
         return result
     raise HTTPException(status_code=404, detail="Message not found")
+
+
+@router.get("/unread_count")
+async def get_unread_messages_count():
+    unread_count = await db.messages_database.messages.count_documents({"read": False})
+    return {"unread_count": unread_count}

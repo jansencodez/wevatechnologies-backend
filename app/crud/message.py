@@ -20,15 +20,13 @@ async def create_message(message: MessageCreate):
 
 # Function to get all messages
 async def get_messages(limit: int, skip: int):
-    messages_cursor = db.messages_database.messages.find().skip(skip).limit(limit).sort("created_at", DESCENDING)  # Fetch up to 100 messages
+    messages_cursor = db.messages_database.messages.find().skip(skip).limit(limit).sort("_id", DESCENDING)
     messages = []
     async for message in messages_cursor:
+        # Use the ObjectId's generation time as the created_at time
         message["created_at"] = message["_id"].generation_time
-
         message["id"] = str(message["_id"])
         del message["_id"]
-
-        
         messages.append(message)
     return messages
 
