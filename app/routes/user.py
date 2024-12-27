@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.security import OAuth2PasswordBearer
-from app.schemas.user import UserCreate, UserResponse, UserUpdate, UserLoginRequest
+from app.schemas.user import UserCreate, UserResponse, UserUpdate, UserLoginRequest, UserTokensResponse
 from app.auth import create_access_token, create_refresh_token, verify_token
 from app.crud.user import create_user, get_user_by_email, update_user, authenticate_user, get_user
 from app.db.connection import db
@@ -20,7 +20,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 # Route to register a new user
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=UserTokensResponse)
 async def register_user(
     name: str = Form(...),
     email: str = Form(...),
@@ -56,7 +56,6 @@ async def register_user(
     refresh_token = create_refresh_token(data={"sub": user["email"]})
 
     return {
-        "user": {**user},
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer"
@@ -120,13 +119,12 @@ async def update_user_route(
     updated_user = await update_user(user_id, user_data)
     return updated_user
 
-@router.post("/login")
+@router.post("/login", response_model=UserTokensResponse)
 async def login_user(email: str = Form(...), password: str = Form(...)):
     try:
         tokens = await authenticate_user(email, password)
         user= await get_user_by_email(email)
         return {
-            "user": user,
             **tokens
         }
     except HTTPException as e:

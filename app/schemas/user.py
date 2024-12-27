@@ -12,8 +12,12 @@ class UserCreate(BaseModel):
     role: str = Field("user", description="The role of the user, default is 'user'. Can be 'investor'.")
     is_active: bool = True
 
-
-class UserData(BaseModel):
+class UserTokensResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+  
+class UserResponse(BaseModel):
     id: str
     name: str
     email: str
@@ -21,11 +25,6 @@ class UserData(BaseModel):
     profile_picture: Optional[str]
     bio: Optional[str]
     role: str
-class UserResponse(BaseModel):
-    user: UserData
-    access_token: str
-    refresh_token: str
-    token_type: str
 
     class Config:
         orm_mode = True
