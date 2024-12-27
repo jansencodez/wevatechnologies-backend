@@ -124,7 +124,11 @@ async def update_user_route(
 async def login_user(email: str = Form(...), password: str = Form(...)):
     try:
         tokens = await authenticate_user(email, password)
-        return tokens
+        user= await get_user_by_email(email)
+        return {
+            "user": user,
+            **tokens
+        }
     except HTTPException as e:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
