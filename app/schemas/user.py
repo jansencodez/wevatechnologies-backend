@@ -13,14 +13,19 @@ class UserCreate(BaseModel):
     is_active: bool = True
 
 
-class UserResponse(BaseModel):
+class UserData(BaseModel):
     id: str
     name: str
-    email: EmailStr
-    phone: Optional[str] = None
-    profile_picture: Optional[str] = None
-    bio: Optional[str] = None
-    role:str
+    email: str
+    phone: Optional[str]
+    profile_picture: Optional[str]
+    bio: Optional[str]
+    role: str
+class UserResponse(BaseModel):
+    user: UserData
+    access_token: str
+    refresh_token: str
+    token_type: str
 
     class Config:
         orm_mode = True

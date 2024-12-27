@@ -11,6 +11,8 @@ async def create_user(user: UserCreate):
     user_dict["password"] = hashed_password
     result = await db.users_database.users.insert_one(user_dict)
     user_dict["id"] = str(result.inserted_id)
+    del user_dict["password"]
+    del user_dict["_id"]
     
     return {**user_dict}
 
