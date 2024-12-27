@@ -19,7 +19,10 @@ async def create_user(user: UserCreate):
 async def get_user_by_email(email: str):
     user = await db.users_database.users.find_one({"email": email})
     if user:
-        return {**user, "id": str(user["_id"])}
+        user["id"] = str(user["_id"])
+        del user["_id"]
+        del user["password"]
+        return {**user}
     raise HTTPException(status_code=404, detail="User not found")
 
 
