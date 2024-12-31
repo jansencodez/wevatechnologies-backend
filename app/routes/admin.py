@@ -5,13 +5,16 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from app.db.connection import db
 from app.schemas.admin import AdminCreate, AdminLoginRequest
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
-from app.crud.admin import create_admin, authenticate_admin, get_admin_by_email, send_email, get_message_by_id
+from app.crud.admin import create_admin, authenticate_admin, get_admin_by_email, get_message_by_id
 from app.auth import create_access_token, create_refresh_token, verify_refresh_token, verify_token
 from fastapi.security import OAuth2PasswordBearer
 from googleapiclient.errors import HttpError 
 from pydantic import BaseModel
 import logging
 from app.utils.uptime import server_start_time
+from app.services.send_email import send_email
+from app.services.update_message_status import update_message_status
+
 
 # Add logging to capture more details
 logger = logging.getLogger(__name__)
@@ -64,23 +67,29 @@ async def login_admin(request: AdminLoginRequest):
 
 @router.post("/messages/{message_id}/respond")
 async def respond_to_message(message_id: str, email_response: EmailResponse, background_tasks: BackgroundTasks):
+    # Retrieve the message details by ID
     message = await get_message_by_id(message_id)
-    sender_email = message["email"]
-    response_message = email_response.response
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
 
-    # Prepare the email content
-    email_body = {
-        "sender_email": sender_email,
-        "response_message": response_message,
-    }
+    recipient_email = message["email"]
+    recipient_name = message["name"]
+    response_message = email_response.response
 
     # Send the email in the background
     try:
-        background_tasks.add_task(send_email, "Response to your message", sender_email, email_body)
-        return {"detail": f"Email sent successfully to {sender_email}"}
-    except HttpError as error:
-        return {"detail": f"An error occurred: {error}"}
+        background_tasks.add_task(
+            send_email,
+            {"email": recipient_email, "name": recipient_name},
+            "email response",
+            response_message
+        )
 
+        await update_message_status(message_id, read=True)
+
+        return {"detail": f"Email sent successfully to {recipient_email}"}
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(error)}")
 
 
 

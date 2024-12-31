@@ -3,6 +3,7 @@ from app.db.connection import db
 from app.schemas.user import UserCreate
 from bson import ObjectId
 from app.auth import get_password_hash, verify_password, create_access_token, create_refresh_token
+from app.services.send_email import send_email
 
 # Create a new user
 async def create_user(user: UserCreate):
@@ -13,6 +14,11 @@ async def create_user(user: UserCreate):
     user_dict["id"] = str(result.inserted_id)
     del user_dict["password"]
     del user_dict["_id"]
+
+    try:
+        await send_email(user_dict, "signup")
+    except HTTPException as e:
+        print("Email error:", e.detail)
     
     return {**user_dict}
 
@@ -51,7 +57,14 @@ async def update_user(user_id: str, updated_data: dict):
 # Authenticate user and return access token
 async def authenticate_user(email: str, password: str):
     user = await db.users_database.users.find_one({"email": email})
+
     if user and verify_password(password, user["password"]):
+        try:
+            await send_email({"email": user["email"], "name": user["name"]}, "login")
+        except HTTPException as e:
+            
+            print(f"Email error: {e.detail}")
+
         access_token = create_access_token(data={"sub": user["email"]})
         refresh_token = create_refresh_token(data={"sub": user["email"]})
         return {

@@ -47,7 +47,7 @@ async def reset_all_usage():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You can restrict to specific origins
+    allow_origins=["https://wevatechnologies.vercel.app", "http://localhost:3000"],  # You can restrict to specific origins
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers

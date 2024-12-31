@@ -3,43 +3,12 @@ from app.db.connection import db
 from app.schemas.admin import AdminCreate, AdminResponse
 from bson import ObjectId
 from app.auth import create_access_token, get_password_hash, verify_password, create_refresh_token
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
-from dotenv import load_dotenv
 import logging
-import os
 
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-def send_email(subject: str, email_to: str, body: dict):
-    """Function to send the email using SendGrid."""
-    try:
-        # Create the email message
-        logger.info("Creating email message")
-        response_message = body.get('response_message', 'No response message provided.')
-        from_email = Email("jansencodez@gmail.com")
-        to_email = To(email_to)
-        content = Content("text/plain", f"Response to your message:\n\n{response_message}")
-        mail = Mail(from_email, to_email, subject, content)
-
-        # Send the email
-        logger.info("Sending email message")
-        sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
-        if not sendgrid_api_key:
-            logger.error("SendGrid API key is missing")
-            raise HTTPException(status_code=500, detail="SendGrid API key is missing")
-        sg=SendGridAPIClient(sendgrid_api_key)
-        response = sg.client.mail.send.post(request_body=mail.get())
-        logger.info(f"Email sent: {response.status_code}")
-        logger.info(response.body)
-        logger.info(response.headers)
-    except Exception as error:
-        logger.error(f"An error occurred: {error}")
-        raise HTTPException(status_code=500, detail=f"An error occurred: {error}")
 
 # Function to fetch a message by its ID from the database
 async def get_message_by_id(message_id: str, collection=db.messages_database.messages):

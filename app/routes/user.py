@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+import json
+import os
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from app.schemas.user import UserCreate, UserResponse, UserUpdate, UserLoginRequest, UserTokensResponse
-from app.auth import create_access_token, create_refresh_token, verify_token
+from app.auth import create_access_token, create_refresh_token, verify_refresh_token, verify_token
 from app.crud.user import create_user, get_user_by_email, update_user, authenticate_user, get_user
 from app.db.connection import db
 from app.utils.cloudinary import upload as cloudinary_upload
 from app.utils.cloudinary import delete as cloudinary_delete
 from bson import ObjectId
+from dotenv import load_dotenv
+from app.utils.get_refresh import get_refresh_token_from_cookie
 
+load_dotenv()
 router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -123,10 +129,21 @@ async def update_user_route(
 async def login_user(email: str = Form(...), password: str = Form(...)):
     try:
         tokens = await authenticate_user(email, password)
-        user= await get_user_by_email(email)
-        return {
-            **tokens
-        }
+        is_production = os.getenv("ENV", "development") == "production"
+
+        response = JSONResponse(content={
+            "access_token": tokens["access_token"],
+            "token_type": "bearer"})
+
+        response.set_cookie(
+            key="refresh_token", 
+            value=tokens["refresh_token"],
+            httponly=True, secure=is_production,
+            samesite="strict",
+            max_age=3600)
+        
+        return response
+    
     except HTTPException as e:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -149,3 +166,22 @@ async def delete_user_route(user_id: str):
     if result.deleted_count == 1:
         return {"message": "User deleted successfully"}
     raise HTTPException(status_code=404, detail="User not found")
+
+
+@router.post("/logout")
+async def logout_user(request: Request):
+    response = JSONResponse(content={"message": "Logout successful"})
+    response.delete_cookie(key="refresh_token")
+    return response
+
+@router.post("/refresh", response_model=UserTokensResponse)
+async def refresh_token(request: Request, refresh_token: str = Depends(get_refresh_token_from_cookie)):
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token not found")
+
+    payload = verify_refresh_token(refresh_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    
+    new_access_token = create_access_token({"sub": payload["sub"], "role": payload["role"]})
+    return {"access_token": new_access_token}
