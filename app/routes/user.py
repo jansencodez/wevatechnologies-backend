@@ -157,12 +157,8 @@ async def login_user(email: str = Form(...), password: str = Form(...)):
 def init_oauth_flow():
     return Flow.from_client_secrets_file(
         CLIENT_SECRETS,  # Path to the downloaded Google client secrets file.
-        scopes = [
-  "https://www.googleapis.com/auth/gmail.send",
-  "https://www.googleapis.com/auth/userinfo.profile",
-  "openid",
-  "https://www.googleapis.com/auth/userinfo.email",
-],redirect_uri=REDIRECT_URI
+        scopes=["openid", "profile", "email"],
+        redirect_uri=REDIRECT_URI
     )
 
 @router.get("/google-login")
