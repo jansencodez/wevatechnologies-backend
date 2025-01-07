@@ -162,8 +162,7 @@ def init_oauth_flow():
   "https://www.googleapis.com/auth/userinfo.profile",
   "openid",
   "https://www.googleapis.com/auth/userinfo.email",
-],
-        redirect_uri=REDIRECT_URI
+],redirect_uri=REDIRECT_URI
     )
 
 @router.get("/google-login")
