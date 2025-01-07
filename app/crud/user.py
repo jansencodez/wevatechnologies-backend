@@ -1,11 +1,39 @@
+import os
 from fastapi import HTTPException
 from app.db.connection import db
 from app.schemas.user import UserCreate
 from bson import ObjectId
 from app.auth import get_password_hash, verify_password, create_access_token, create_refresh_token
 from app.services.send_email import send_email
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
-# Create a new user
+
+# Create a new user using google
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+async def verify_google_token(token: str):
+    try:
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+
+        # Extract user info
+        google_id = idinfo["sub"]
+        email = idinfo["email"]
+        name = idinfo.get("name")
+        picture = idinfo.get("picture")
+
+        return {
+            "googleId": google_id,
+            "email": email,
+            "name": name,
+            "profileImage": picture,
+        }
+    except ValueError as e:
+        raise ValueError("Invalid Google Token") from e
+
+# Create a new user without google
+
 async def create_user(user: UserCreate):
     hashed_password = get_password_hash(user.password)
     user_dict = user.model_dump()

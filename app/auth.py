@@ -4,6 +4,9 @@ from passlib.context import CryptContext
 from typing import Optional
 import os
 from dotenv import load_dotenv
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
 
 
 # Load environment variables from .env file
@@ -17,6 +20,28 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7  # Refresh token expiration time
 
 # Create a password context for hashing passwords
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+async def verify_google_token(token: str):
+    try:
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+
+        # Extract user info
+        google_id = idinfo["sub"]
+        email = idinfo["email"]
+        name = idinfo.get("name")
+        picture = idinfo.get("picture")
+
+        return {
+            "googleId": google_id,
+            "email": email,
+            "name": name,
+            "profileImage": picture,
+        }
+    except ValueError as e:
+        raise ValueError("Invalid Google Token") from e
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """

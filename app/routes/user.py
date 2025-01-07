@@ -1,11 +1,11 @@
 from google_auth_oauthlib.flow import Flow
 import google.auth.transport.requests
 import os
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from app.schemas.user import UserCreate, UserResponse, UserUpdate, UserLoginRequest, UserTokensResponse
-from app.auth import create_access_token, create_refresh_token, verify_refresh_token, verify_token
+from app.auth import create_access_token, create_refresh_token, verify_google_token, verify_refresh_token, verify_token
 from app.crud.user import create_user, get_user_by_email, update_user, authenticate_user, get_user
 from app.db.connection import db
 from app.utils.cloudinary import upload as cloudinary_upload
@@ -72,6 +72,7 @@ async def register_user(
         "refresh_token": refresh_token,
         "token_type": "bearer"
     }
+
 
 
 # Route to get a user by ID
@@ -144,14 +145,52 @@ async def login_user(email: str = Form(...), password: str = Form(...)):
         response.set_cookie(
             key="refresh_token", 
             value=tokens["refresh_token"],
-            httponly=True, secure=is_production,
-            samesite="strict",
+            httponly=True, 
+            secure=is_production,
+            samesite="Lax",
             max_age=3600)
         
         return response
     
     except HTTPException as e:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+
+#google signup
+
+@router.post("register/google")
+async def google_sign_up(token: str,  response: Response):
+    try:
+        # Verify Google token
+        user_data = await verify_google_token(token)
+        is_production = os.getenv("ENV", "development") == "production"
+
+        # Check if user already exists
+        existing_user = await db.users_database.users.find_by_google_id(user_data["googleId"])
+        if existing_user:
+            return {"message": "User already exists", "user": existing_user}
+
+        # Create new user
+        new_user = await db.users_database.users.create_user(user_data)
+        access_token = create_access_token(data={"sub": new_user["email"]})
+        refresh_token = create_refresh_token(data={"sub": new_user["email"]})
+
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=is_production,  # Use True in production with HTTPS
+            samesite="Lax",  # Adjust based on your app's needs
+            max_age=60 * 60 * 24 * 7  # 7 days (adjust as required)
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 def init_oauth_flow():
@@ -164,6 +203,7 @@ def init_oauth_flow():
 ],
         redirect_uri=REDIRECT_URI
     )
+
 
 @router.get("/google-login")
 async def google_login():
