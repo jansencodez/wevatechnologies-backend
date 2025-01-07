@@ -157,7 +157,11 @@ async def login_user(email: str = Form(...), password: str = Form(...)):
 def init_oauth_flow():
     return Flow.from_client_secrets_file(
         CLIENT_SECRETS,  # Path to the downloaded Google client secrets file.
-        scopes=["openid", "profile", "email"],
+        scopes=[
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "openid"
+],
         redirect_uri=REDIRECT_URI
     )
 
@@ -173,82 +177,63 @@ async def google_login():
 @router.get("/google-callback")
 async def google_callback(code: str):
     try:
-        # Initialize OAuth flow and fetch token
-        flow = init_oauth_flow()  # Same flow object, make sure it's initialized correctly
-        flow.fetch_token(
-            authorization_response=f"{REDIRECT_URI}?code={code}",
-            client_secret=CLIENT_SECRET,
-        )
-
-        # Get user info using the access token
-        credentials = flow.credentials
-        request = google.auth.transport.requests.Request()
-        credentials.refresh(request)
-
-        # Get the user's info
-        user_info = credentials.id_token
-        email = user_info.get("email")
-        name = user_info.get("name")
-        profile_image_url = user_info.get("picture")
-        phone = user_info.get("phone_number")
-
-        # Check if the user already exists
-        user = await get_user_by_email(email)
-        if user:
-            # User exists, proceed to login (create new tokens)
-            access_token = create_access_token(data={"sub": email})
-            refresh_token = create_refresh_token(data={"sub": email})
-
-            response = JSONResponse(content={
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "token_type": "bearer"
-            })
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_token,
-                httponly=True,
-                secure=True,  # Set secure cookies in production
-                samesite="strict",
-                max_age=3600
+        flow = init_oauth_flow()
+        flow.fetch_token(code=code)  # Simplified token fetch
+        
+        # Get user info from ID token
+        id_info = flow.credentials.id_token
+        if not isinstance(id_info, dict):
+            # If id_token is a string, decode it
+            from google.oauth2 import id_token
+            from google.auth.transport import requests
+            
+            id_info = id_token.verify_oauth2_token(
+                id_info,
+                requests.Request(),
+                CLIENT_ID
             )
-            return response
+        
+        # Extract user info
+        email = id_info.get("email")
+        name = id_info.get("name")
+        profile_image_url = id_info.get("picture")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not provided by Google")
 
-        # If user doesn't exist, create a new user and log them in
-        new_user = UserCreate(
-            name=name,
-            email=email,
-            phone=phone or None,
-            profile_picture=profile_image_url or None,
-            bio=None
-        )
+        # Rest of your existing logic for user creation/login
+        user = await get_user_by_email(email)
+        if not user:
+            new_user = UserCreate(
+                name=name,
+                email=email,
+                profile_picture=profile_image_url,
+                is_active=True
+            )
+            await db.users_database.users.insert_one(new_user.model_dump())
 
-        # Insert the new user into the database
-        await db.users_database.users.insert_one(new_user.model_dump())
-
-        # Create tokens for the newly created user
+        # Create tokens
         access_token = create_access_token(data={"sub": email})
         refresh_token = create_refresh_token(data={"sub": email})
 
-        response = JSONResponse(content={
+        response = JSONResponse({
             "access_token": access_token,
-            "refresh_token": refresh_token,
             "token_type": "bearer"
         })
+        
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,  # Set secure cookies in production
-            samesite="strict",
+            secure=True,
+            samesite="lax",  # Changed to lax for OAuth redirect
             max_age=3600
         )
-
+        
         return response
 
-
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Google OAuth Error: " + str(e))
+        raise HTTPException(status_code=400, detail=f"Google OAuth Error: {str(e)}")
 
 @router.delete("/{user_id}", response_model=dict)
 async def delete_user_route(user_id: str):
