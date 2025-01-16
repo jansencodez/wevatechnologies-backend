@@ -179,8 +179,8 @@ async def google_sign_up(token: str,  response: Response):
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=is_production,  # Use True in production with HTTPS
-            samesite="Lax",  # Adjust based on your app's needs
+            secure=is_production, 
+            samesite="Lax",  
             max_age=60 * 60 * 24 * 7  # 7 days (adjust as required)
         )
 

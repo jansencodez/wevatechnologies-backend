@@ -228,7 +228,6 @@ async def get_dashboard_stats():
     }
 
 
-from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 
 @router.post("/projects", response_model=ProjectResponse)
 async def create_project(project: ProjectCreate, admin=Depends(get_current_admin)):
@@ -248,17 +247,17 @@ async def create_project(project: ProjectCreate, admin=Depends(get_current_admin
 async def get_projects_with_completion(admin=Depends(get_current_admin)):
     projects = await db.projects_database.projects.find().to_list(length=None)
     current_time = datetime.now(timezone.utc)
-    
+
     for project in projects:
         project["id"] = str(project["_id"])
         del project["_id"]
-        
+
         # Ensure start_date and end_date are offset-aware
         if project["start_date"]:
             project["start_date"] = project["start_date"].replace(tzinfo=timezone.utc)
         if project["end_date"]:
             project["end_date"] = project["end_date"].replace(tzinfo=timezone.utc)
-        
+
         # Calculate completion percentage
         if project["start_date"] and project["end_date"]:
             start_date = project["start_date"]
@@ -267,10 +266,19 @@ async def get_projects_with_completion(admin=Depends(get_current_admin)):
             elapsed_duration = (current_time - start_date).total_seconds()
             completion_percentage = min(max(elapsed_duration / total_duration * 100, 0), 100)
             project["completion_percentage"] = completion_percentage
+
+            # Update status to "Completed" if completion_percentage is 100%
+            if completion_percentage == 100 and project.get("status") != "Completed":
+                await db.projects_database.projects.update_one(
+                    {"_id": ObjectId(project["id"])},
+                    {"$set": {"status": "Completed", "updated_at": current_time}}
+                )
+                project["status"] = "Completed"
         else:
             project["completion_percentage"] = 0
 
     return [ProjectResponse(**project) for project in projects]
+
 
 @router.get("/projects/{project_id}")
 async def get_project(project_id: str, admin=Depends(get_current_admin)):

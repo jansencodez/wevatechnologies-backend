@@ -32,6 +32,7 @@ async def create_admin(admin: AdminCreate):
     # Insert the new admin into the database
     result = await db.admins_database.admins.insert_one(admin_dict)
     admin_dict["id"] = str(result.inserted_id)
+    del admin_dict["_id"]
 
     return admin_dict
 
